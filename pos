@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>自然捲 POS 系統</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+    body { font-family: "PingFang TC", "Helvetica Neue", sans-serif; margin:0; background:#f8f9fa; }
+    .container { display:flex; height:100vh; flex-direction:column; }
+    .header { background:#2c3e50; color:white; padding:15px; text-align:center; font-size:24px; font-weight:bold; }
+    .main { display:flex; flex:1; overflow:hidden; }
+    .menu { width:45%; overflow-y:auto; padding:15px; background:white; border-right:1px solid #ddd; }
+    .order { width:55%; background:#f8f9fa; padding:15px; display:flex; flex-direction:column; }
+    .category { margin-bottom:20px; }
+    .cat-title { background:#34495e; color:white; padding:10px; margin:-15px -15px 10px; font-size:18px; }
+    .item { padding:12px; margin:8px 0; background:#fff; border-radius:8px; border:1px solid #eee; cursor:pointer; }
+    .item:hover { background:#e8f5e9; }
+    .price { float:right; color:#27ae60; font-weight:bold; }
+    .order-list { flex:1; overflow-y:auto; }
+    .order-item { display:flex; justify-content:space-between; padding:12px; background:white; margin:8px 0; border-radius:8px; }
+    .total { font-size:28px; font-weight:bold; text-align:right; padding:15px; background:white; border-top:2px solid #2c3e50; }
+    button { padding:12px 20px; font-size:18px; margin:5px; border:none; border-radius:8px; }
+    .add { background:#27ae60; color:white; }
+    .remove { background:#e74c3c; color:white; }
+    .clear { background:#95a5a6; color:white; }
+    .checkout { background:#2980b9; color:white; font-size:22px; padding:15px; width:100%; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">🌯 自然捲 tsü-lián WRAP - POS 系統</div>
+    <div class="main">
+        <!-- 左側菜單 -->
+        <div class="menu" id="menu"></div>
+        
+        <!-- 右側訂單 -->
+        <div class="order">
+            <h2>目前訂單</h2>
+            <div class="order-list" id="order-list"></div>
+            <div class="total">總計：NT$ <span id="total">0</span></div>
+            
+            <div>
+                <button class="clear" onclick="clearOrder()">清空訂單</button>
+                <button class="checkout" onclick="checkout()">結帳</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== 菜單資料（已完整輸入）====================
+const menu = {
+    "歐姆蛋捲 Omelette": [
+        {name: "牛肉醬起司蛋捲 Taco Beef", price: 250},
+        {name: "蝦仁櫛瓜蛋捲 Shrimp-Zucchini", price: 250},
+        {name: "虱目魚碎薯茄蛋捲 Milkfish Mince", price: 230},
+        {name: "菠菜炒蘑菇蛋捲 Spinach-Mushroom", price: 180}
+    ],
+    "酥木餅 Quesadilla": [
+        {name: "牛肉醬起司酥木餅 Taco Beef", price: 260},
+        {name: "特製豬肉蛋酥木餅 Pork Mince W/Scrambled Eggs", price: 210},
+        {name: "芥末手撕豬酥木餅 Wasabi Pulled Pork", price: 210},
+        {name: "印度咖哩雞酥木餅 Curry Chicken", price: 210},
+        {name: "墨西哥雞肉酥木餅 Taco Chicken", price: 210},
+        {name: "菠菜蘑菇地瓜泥酥木餅 Mushroom-Spinach", price: 190}
+    ],
+    "捲餅 Wrap": [
+        {name: "牛肉醬起司捲餅 Taco Beef", price: 260},
+        {name: "醬燒豬五花捲餅 Soy-Stewed Pork Belly", price: 260},
+        {name: "酥炸香料雞捲餅 Fried Chicken", price: 230},
+        {name: "芥末手撕豬捲餅 Wasabi Pulled Pork", price: 210},
+        {name: "印度咖哩雞捲餅 Curry Chicken", price: 210},
+        {name: "墨西哥雞肉捲餅 Taco Chicken", price: 210},
+        {name: "菠菜蘑菇地瓜泥捲餅 Mushroom-Spinach", price: 190}
+    ],
+    "飯捲 Burrito": [
+        {name: "牛肉醬起司飯捲 Taco Beef", price: 270},
+        {name: "墨西哥雞肉飯捲 Taco Chicken", price: 250}
+    ],
+    "小食 Snacks": [
+        {name: "一片薯餅 Hash brown", price: 40},
+        {name: "四塊雞塊 Nuggets", price: 50},
+        {name: "黃金脆薯 Fries", price: 60},
+        {name: "油醋沙拉 Vinaigrette Salad", price: 70},
+        {name: "墨西哥沙拉 Mexican Salad", price: 90},
+        {name: "原味美式雞翅 Classic Chicken Wings", price: 120},
+        {name: "酸辣美式雞翅 Buffalo Chicken Wings", price: 150},
+        {name: "墨西哥起司脆片 Classic Nachos", price: 180},
+        {name: "牛肉醬起司脆片 Beef Nachos", price: 250}
+    ],
+    "飲品 Beverage": [
+        {name: "紅茶 Black Tea", price: 40},
+        {name: "南非國寶茶 Rooibos", price: 40},
+        {name: "紅茶拿鐵 Milk Tea", price: 60},
+        {name: "國寶拿鐵 Rooibos Latte", price: 60},
+        {name: "美式咖啡 Americano", price: 60},
+        {name: "拿鐵 Latte", price: 80},
+        {name: "蘋果汁 Apple Juice", price: 70},
+        {name: "Bundaberg 天然蘋果氣泡飲", price: 120}
+    ],
+    "早餐特價 Breakfast": [
+        {name: "牛肉醬 Omelette", price: 110},
+        {name: "蝦仁櫛瓜 Omelette", price: 110},
+        {name: "虱目魚 Omelette", price: 100},
+        {name: "菠菜 Omelette", price: 80},
+        // Quesadilla
+        {name: "牛肉醬 Quesadilla", price: 100},
+        {name: "豬肉 Quesadilla", price: 80},
+        {name: "芥末豬 Quesadilla", price: 80},
+        {name: "咖哩雞 Quesadilla", price: 80},
+        {name: "墨西哥雞 Quesadilla", price: 80},
+        {name: "菠菜 Quesadilla", price: 80},
+        // Wrap
+        {name: "牛肉醬 Wrap", price: 200},
+        {name: "香料雞 Wrap", price: 170},
+        {name: "芥末豬 Wrap", price: 150},
+        {name: "咖哩雞 Wrap", price: 150},
+        {name: "墨西哥雞 Wrap", price: 150},
+        {name: "菠菜 Wrap", price: 130}
+    ]
+};
+
+// ==================== 程式功能 ====================
+let order = [];
+
+function renderMenu() {
+    const menuDiv = document.getElementById('menu');
+    menuDiv.innerHTML = '';
+    
+    for (let category in menu) {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'category';
+        catDiv.innerHTML = `<div class="cat-title">${category}</div>`;
+        
+        menu[category].forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'item';
+            itemDiv.innerHTML = `${item.name} <span class="price">$${item.price}</span>`;
+            itemDiv.onclick = () => addToOrder(item);
+            catDiv.appendChild(itemDiv);
+        });
+        menuDiv.appendChild(catDiv);
+    }
+}
+
+function addToOrder(item) {
+    order.push(item);
+    renderOrder();
+}
+
+function renderOrder() {
+    const list = document.getElementById('order-list');
+    list.innerHTML = '';
+    
+    order.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'order-item';
+        div.innerHTML = `
+            ${item.name}
+            <span>$${item.price} 
+                <button class="remove" onclick="removeItem(${index})">刪除</button>
+            </span>
+        `;
+        list.appendChild(div);
+    });
+    
+    const total = order.reduce((sum, item) => sum + item.price, 0);
+    document.getElementById('total').textContent = total;
+}
+
+function removeItem(index) {
+    order.splice(index, 1);
+    renderOrder();
+}
+
+function clearOrder() {
+    if (confirm('確定要清空訂單嗎？')) {
+        order = [];
+        renderOrder();
+    }
+}
+
+function checkout() {
+    if (order.length === 0) {
+        alert('訂單是空的！');
+        return;
+    }
+    
+    const total = order.reduce((sum, item) => sum + item.price, 0);
+    let receipt = `自然捲 POS 收據\n`;
+    receipt += `時間：${new Date().toLocaleString('zh-TW')}\n`;
+    receipt += `================================\n`;
+    
+    order.forEach(item => {
+        receipt += `${item.name} ...... $${item.price}\n`;
+    });
+    
+    receipt += `================================\n`;
+    receipt += `總計：NT$ ${total}\n`;
+    receipt += `謝謝惠顧！🌯`;
+    
+    alert(receipt);
+    
+    // 清空訂單
+    order = [];
+    renderOrder();
+}
+
+// 啟動
+renderMenu();
+</script>
+
+</body>
+</html>
